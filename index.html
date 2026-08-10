@@ -38,17 +38,16 @@
   .scanlines{ position:fixed; inset:0; pointer-events:none; z-index:998; opacity:.05;
     background:repeating-linear-gradient(0deg, #fff 0px, transparent 1px, transparent 3px); }
 
-  /* ================= ROTATE PROMPT ================= */
+  /* ================= ROTATE PROMPT (first-load hint only) ================= */
   .rotate-overlay{ position:fixed; inset:0; z-index:9999; background:var(--bg); display:none;
-    align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:40px; }
+    align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:40px;
+    opacity:0; pointer-events:none; transition:opacity 1s ease; }
+  .rotate-overlay.show{ display:flex; opacity:1; pointer-events:auto; }
+  .rotate-overlay.fade-out{ opacity:0; }
   .rotate-icon{ font-size:54px; margin-bottom:18px; display:inline-block; animation:rotateHint 1.8s ease-in-out infinite; }
   @keyframes rotateHint{ 0%,100%{ transform:rotate(0deg); } 50%{ transform:rotate(90deg); } }
   .rotate-title{ font-weight:700; font-size:22px; text-transform:uppercase; letter-spacing:.04em; color:var(--accent); margin-bottom:8px; }
   .rotate-sub{ color:var(--dim); font-size:14px; max-width:280px; }
-  @media (orientation: portrait) and (max-width: 926px){
-    .rotate-overlay{ display:flex; }
-    #lobby, #game{ display:none !important; }
-  }
 
   /* ================= LOBBY ================= */
   #lobby{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; padding:24px; z-index:10; }
@@ -243,6 +242,21 @@
 
 <script>
 (function(){
+
+/* ============ ROTATE HINT (shown once on first load, then fades) ============ */
+(function(){
+  const overlay = document.querySelector('.rotate-overlay');
+  if(!overlay) return;
+  const isPortrait = () => window.innerHeight > window.innerWidth;
+  if(!isPortrait()) return;
+  overlay.classList.add('show');
+  setTimeout(()=>{
+    overlay.classList.add('fade-out');
+    overlay.addEventListener('transitionend', ()=>{
+      overlay.classList.remove('show','fade-out');
+    }, { once:true });
+  }, 4000);
+})();
 
 /* ============ STORAGE HELPERS ============ */
 async function sGet(key){
