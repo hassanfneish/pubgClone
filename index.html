@@ -750,6 +750,11 @@ document.getElementById('leaveBtn').addEventListener('click', ()=>{
   endShown = false;
 });
 
+/* ============ SERVICE WORKER REGISTRATION ============ */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+
 })();
 </script>
 </body>
