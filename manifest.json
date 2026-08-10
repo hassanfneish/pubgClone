@@ -3,8 +3,8 @@
   "short_name": "LastCircle",
   "description": "2-player arena battle — shrinking zone, last one standing.",
   "start_url": "./index.html",
-  "display": "standalone",
-  "orientation": "portrait",
+  "display": "fullscreen",
+  "orientation": "landscape",
   "background_color": "#0a0d08",
   "theme_color": "#0a0d08",
   "icons": [
