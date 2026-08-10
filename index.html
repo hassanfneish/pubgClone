@@ -267,9 +267,9 @@ const FIREBASE_URL = "https://lastcircle-e89a3-default-rtdb.firebaseio.com";
 async function sGet(key){
   try{
     const res = await fetch(FIREBASE_URL + '/' + key + '.json');
-    if(!res.ok) return null;
+    if(!res.ok){ console.error('Firebase GET failed', key, res.status); return null; }
     return await res.json();
-  }catch(e){ return null; }
+  }catch(e){ console.error('Firebase GET error', key, e); return null; }
 }
 async function sSet(key, val){
   try{
@@ -278,8 +278,9 @@ async function sSet(key, val){
       headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify(val)
     });
+    if(!res.ok){ console.error('Firebase SET failed', key, res.status); }
     return res.ok;
-  }catch(e){ return false; }
+  }catch(e){ console.error('Firebase SET error', key, e); return false; }
 }
 
 /* ============ CONSTANTS ============ */
@@ -311,6 +312,7 @@ let lastProcessedGuestShotId = 0;
 let prevSnap = null, latestSnap = null, latestSnapAt = 0;
 let guestLocalInput = { dx:0, dy:0 };
 let guestShotId = 0, guestPendingShot = null;
+let guestPredicted = null, guestLastFrameTs = null;
 
 let timers = {};
 let running = false;
@@ -555,13 +557,24 @@ function startGuestGame(){
   role = 'guest';
   enterGameScreen();
   running = true;
+  guestPredicted = null;
+  guestLastFrameTs = null;
   timers.pollState = setInterval(async ()=>{
     const st = await sGet('lc:'+roomCode+':state');
     if(st){
-      if(latestSnap && latestSnap.round !== st.round){ prevSnap = null; }
+      if(latestSnap && latestSnap.round !== st.round){ prevSnap = null; guestPredicted = null; }
       prevSnap = latestSnap || st;
       latestSnap = st;
       latestSnapAt = performance.now();
+      if(st.players && st.players.guest){
+        if(!guestPredicted){
+          guestPredicted = { x:st.players.guest.x, y:st.players.guest.y };
+        } else {
+          // soft-correct predicted position toward host's authoritative position
+          guestPredicted.x += (st.players.guest.x - guestPredicted.x) * 0.35;
+          guestPredicted.y += (st.players.guest.y - guestPredicted.y) * 0.35;
+        }
+      }
     }
   }, POLL_MS);
   timers.sendInput = setInterval(()=>{
@@ -570,7 +583,21 @@ function startGuestGame(){
   }, SEND_MS);
   function frame(now){
     if(!running) return;
-    draw(interpolatedGuestSnapshot(now));
+    const dt = guestLastFrameTs ? Math.min((now-guestLastFrameTs)/1000, 0.05) : 0;
+    guestLastFrameTs = now;
+    if(guestPredicted && dt>0){
+      const mag = Math.hypot(guestLocalInput.dx, guestLocalInput.dy) || 1;
+      const nx = guestPredicted.x + (guestLocalInput.dx/mag||0)*PLAYER_SPEED*dt*Math.min(mag,1);
+      const ny = guestPredicted.y + (guestLocalInput.dy/mag||0)*PLAYER_SPEED*dt*Math.min(mag,1);
+      const c = clampToArena(nx, ny, PLAYER_R);
+      guestPredicted.x = c.x; guestPredicted.y = c.y;
+    }
+    const snap = interpolatedGuestSnapshot(now);
+    if(snap && guestPredicted && snap.players && snap.players.guest){
+      snap.players.guest.x = guestPredicted.x;
+      snap.players.guest.y = guestPredicted.y;
+    }
+    draw(snap);
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
